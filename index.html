@@ -1,0 +1,237 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Десять Свечей — Кубики и Свечи</title>
+  <style>
+    :root{
+      --bg:#0f1117; --card:#161a23; --accent:#8ee3f5; --text:#e6e6e6; --muted:#b7c0d1; --danger:#ff6b6b; --ok:#7CFC7C;
+      --warn:#ffd166; --line:#232838;
+    }
+    *{box-sizing:border-box}
+    body{margin:0; font-family:system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,Arial; background:var(--bg); color:var(--text);}
+    header{padding:16px 16px 8px; border-bottom:1px solid var(--line); position:sticky; top:0; background:linear-gradient(180deg,rgba(15,17,23,.98),rgba(15,17,23,.9)); backdrop-filter: blur(8px); z-index:10;}
+    h1{font-size:18px; margin:0;}
+    .row{display:flex; gap:12px; align-items:center; flex-wrap:wrap}
+    .pill{padding:6px 10px; border:1px solid var(--line); border-radius:999px; color:var(--muted); font-size:12px}
+    main{padding:16px; display:grid; gap:16px; grid-template-columns:1fr;}
+    @media(min-width:900px){ main{ grid-template-columns: 1fr 1fr; } }
+    .card{background:var(--card); border:1px solid var(--line); border-radius:16px; padding:16px; box-shadow:0 6px 24px rgba(0,0,0,.2)}
+    .title{font-weight:700; margin-bottom:8px}
+    .candles{display:flex; gap:6px; flex-wrap:wrap; align-items:center}
+    .candle{width:24px; height:24px; border-radius:6px; display:grid; place-items:center; cursor:pointer; font-size:16px; background:#1f2536; border:1px solid var(--line)}
+    .candle.lit{background:#2c334a; color:#ffd166; text-shadow:0 0 8px #ffd166}
+    .btn{appearance:none; border:none; background:#24304a; color:#fff; padding:10px 14px; border-radius:10px; cursor:pointer; font-weight:600; border:1px solid var(--line)}
+    .btn:hover{filter:brightness(1.05)}
+    .btn:active{transform:translateY(1px)}
+    .btn-danger{background:#3b1f25; border-color:#5a2830; color:#ffdede}
+    .btn-accent{background:#17333b; border-color:#24515c; color:#b7f3ff}
+    .btn-ghost{background:transparent; border-color:var(--line); color:var(--muted)}
+    .players{display:flex; flex-direction:column; gap:12px}
+    .player{border:1px dashed var(--line); border-radius:12px; padding:12px}
+    .grid{display:grid; gap:8px; grid-template-columns:1fr 1fr; align-items:center}
+    .label{color:var(--muted); font-size:12px}
+    input[type="text"]{width:100%; background:#0f1320; border:1px solid var(--line); color:#fff; border-radius:8px; padding:10px}
+    .dice{font-family:"JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; display:flex; gap:6px; flex-wrap:wrap}
+    .die{padding:4px 6px; border-radius:6px; border:1px solid var(--line); background:#0e1424; min-width:26px; text-align:center}
+    .die.six{background:#1a2a1e; color:var(--ok); border-color:#2a4a2f; font-weight:700}
+    .die.one{opacity:.7}
+    .log{max-height:280px; overflow:auto; background:#0e1220; border:1px solid var(--line); padding:12px; border-radius:10px; font-family:ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size:13px; white-space:pre-wrap}
+    .rowwrap{display:flex; flex-wrap:wrap; gap:8px; align-items:center}
+    .tiny{font-size:12px; color:var(--muted)}
+    .badge{border:1px solid var(--line); border-radius:8px; padding:4px 8px; font-size:12px; color:var(--muted)}
+    .success{color:var(--ok)} .fail{color:var(--danger)}
+    .footer{opacity:.8; font-size:12px; padding:8px 16px 20px}
+    .switch{display:inline-flex; align-items:center; gap:6px; cursor:pointer; user-select:none}
+    .switch input{display:none}
+    .switch span{border:1px solid var(--line); padding:6px 10px; border-radius:999px; background:#0e1424}
+    .hr{height:1px; background:var(--line); margin:10px 0}
+  </style>
+</head>
+<body>
+  <header>
+    <div class="row">
+      <h1>Десять Свечей · Панель ведущего</h1>
+      <span class="pill" id="scenePill">Сцена 1</span>
+      <span class="pill" id="candlesPill">Свечи: 10</span>
+      <span class="pill" id="gmPill">Пул ГМа: 0</span>
+    </div>
+  </header>
+
+  <main>
+    <section class="card" id="candlesCard">
+      <div class="title">Свечи и сцены</div>
+      <div class="candles" id="candles"></div>
+      <div class="rowwrap" style="margin-top:10px">
+        <button class="btn btn-danger" id="extinguishBtn">🕯 Погасить свечу</button>
+        <button class="btn" id="newSceneBtn">🧭 Новая сцена</button>
+        <label class="switch"><input type="checkbox" id="autoGM" checked><span>Пул ГМа = сцена−1</span></label>
+        <span class="badge" id="finalBadge" style="display:none">Последняя свеча: провал = смерть</span>
+      </div>
+      <div class="grid" style="margin-top:10px">
+        <div class="label">Пул ГМа (вручную):</div>
+        <div><input type="text" id="gmPoolInput" placeholder="0" value="0"></div>
+        <div class="label">Подсказка фразы для «Истин»:</div>
+        <div class="tiny">«Вот всё, что осталось. Мир погружён во тьму.» → истины по числу свечей → вместе: «И мы живы».</div>
+      </div>
+    </section>
+
+    <section class="card">
+      <div class="title">Игроки</div>
+      <div class="rowwrap">
+        <input type="text" id="newPlayerName" placeholder="Имя игрока">
+        <button class="btn btn-accent" id="addPlayerBtn">Добавить игрока</button>
+        <button class="btn btn-ghost" id="resetScenePoolsBtn">Обновить пулы к числу свечей</button>
+      </div>
+      <div class="players" id="players"></div>
+    </section>
+
+    <section class="card" style="grid-column:1/-1">
+      <div class="title">Лог бросков</div>
+      <div class="log" id="log"></div>
+      <div class="rowwrap" style="margin-top:10px">
+        <button class="btn btn-ghost" id="clearLog">Очистить лог</button>
+        <button class="btn btn-ghost" id="saveState">Сохранить состояние</button>
+        <button class="btn btn-ghost" id="loadState">Загрузить состояние</button>
+      </div>
+      <div class="tiny" style="margin-top:6px">Состояние хранится локально в браузере (LocalStorage).</div>
+    </section>
+  </main>
+
+  <div class="footer tiny">Сделано с любовью к трагическому хоррору. Правила: успех — есть хотя бы одна 6 (или Надежда 5+), право рассказа — у кого больше 6. При успехе «1» уходят из пула до конца сцены. При провале — гаснет свеча (в финале провал = смерть).</div>
+
+  <!-- шаблон игрока -->
+  <template id="playerTmpl">
+    <div class="player">
+      <div class="rowwrap">
+        <div style="font-weight:700; font-size:16px" class="pname"></div>
+        <span class="badge">Пул: <span class="ppool"></span></span>
+        <span class="badge hope">Надежда: <span class="phope"></span></span>
+      </div>
+      <div class="rowwrap" style="margin-top:8px">
+        <button class="btn roll">🎲 Бросок</button>
+        <button class="btn rollHope">🎲+Надежда</button>
+        <button class="btn btn-ghost rerollTraitV">🔥 Добродетель → переброс «1»</button>
+        <button class="btn btn-ghost rerollTraitC">🔥 Порок → переброс «1»</button>
+        <button class="btn btn-ghost brink">⚡ Грань (переброс всего)</button>
+      </div>
+      <div class="hr"></div>
+      <div class="grid">
+        <div class="label">Установить пул вручную:</div>
+        <input type="text" class="poolInput" placeholder="число кубов">
+        <div class="label">Отметить Момент (дать Надежду):</div>
+        <button class="btn btn-accent giveHope">✨ Дать Надежду</button>
+      </div>
+      <div class="hr"></div>
+      <div class="label">Последний бросок:</div>
+      <div class="dice pdice"></div>
+      <div class="label" style="margin-top:4px">Кубы ведущего:</div>
+      <div class="dice gdice"></div>
+      <div class="tiny res"></div>
+    </div>
+  </template>
+
+  <script>
+  const $ = (sel, root=document)=>root.querySelector(sel);
+  const $$ = (sel, root=document)=>Array.from(root.querySelectorAll(sel));
+
+  const state = {
+    scene: 1,
+    candles: 10,
+    gmPool: 0,
+    autoGM: true,
+    players: [],
+    nextId: 1,
+  };
+
+  function rng(n){ return Array.from({length:Math.max(0,n)}, ()=>1+Math.floor(Math.random()*6)); }
+
+  function gmPool(){ return state.autoGM ? Math.max(0, state.scene-1) : state.gmPool; }
+
+  function updatePills(){
+    $('#scenePill').textContent = `Сцена ${state.scene}`;
+    $('#candlesPill').textContent = `Свечи: ${state.candles}`;
+    $('#gmPill').textContent = `Пул ГМа: ${gmPool()}`;
+    $('#finalBadge').style.display = (state.candles===1) ? 'inline-block' : 'none';
+  }
+
+  function renderCandles(){
+    const c = $('#candles'); c.innerHTML='';
+    for(let i=0;i<10;i++){
+      const b = document.createElement('button');
+      b.className = 'candle'+(i<state.candles?' lit':'');
+      b.textContent = i<state.candles ? '🕯' : '◼';
+      b.addEventListener('click', ()=>{ state.candles = i+1; updateAll(); });
+      c.appendChild(b);
+    }
+    updatePills();
+  }
+
+  function extinguishCandle(){
+    if(state.candles<=0) return;
+    state.candles -= 1; state.scene += 1;
+    state.players.forEach(p=>{ p.pool = state.candles; p.last=null; });
+    updateAll();
+    log(`🕯 Свеча погашена. Осталось: ${state.candles}.`);
+  }
+
+  function newScene(){
+    state.scene += 1;
+    state.players.forEach(p=>{ p.pool = state.candles; p.last=null; });
+    updateAll();
+    log(`🧭 Новая сцена ${state.scene}.`);
+  }
+
+  function addPlayer(name){
+    if(!name.trim()) return;
+    state.players.push({id:state.nextId++, name, pool:state.candles, hope:false, last:null});
+    renderPlayers();
+  }
+
+  function rollFor(p, withHope=false){
+    const pool = p.pool, gmp = gmPool();
+    const pDice = rng(pool), gDice = rng(gmp);
+    let hopeVal=null;
+    if(withHope && p.hope){ hopeVal=1+Math.floor(Math.random()*6); }
+    const success = pDice.includes(6) || (hopeVal && hopeVal>=5);
+    const narrator = success && (pDice.filter(x=>x===6).length > gDice.filter(x=>x===6).length) ? 'игрок' : 'ведущий';
+    const ones = pDice.filter(x=>x===1).length;
+    if(success){ p.pool = Math.max(0, pool - ones); } else { extinguishCandle(); }
+    p.last={pDice,gDice,hopeVal,success,narrator,onesRemoved:ones,poolBefore:pool};
+    renderPlayers(); logLast(p);
+  }
+
+  function logLast(p){
+    const l = p.last; if(!l) return;
+    const fmt = arr=>arr.map(v=> v===6?`[${v}]`:v).join(' ');
+    log(`${p.name} — пул ${l.poolBefore}\nИгрок: ${fmt(l.pDice)}\nГМ: ${fmt(l.gDice)}\n${l.success?'✅ УСПЕХ':'❌ ПРОВАЛ'} · ${l.narrator}`);
+  }
+
+  function log(t){ const box=$('#log'); box.textContent+=(box.textContent?'\n\n':'')+t; box.scrollTop=box.scrollHeight; }
+
+  function renderPlayers(){
+    const wrap=$('#players'); wrap.innerHTML='';
+    state.players.forEach(p=>{
+      const t=$('#playerTmpl').content.cloneNode(true);
+      $('.pname',t).textContent=p.name;
+      $('.ppool',t).textContent=p.pool;
+      $('.phope',t).textContent=p.hope?'есть':'нет';
+      $('.roll',t).onclick=()=>rollFor(p,false);
+      $('.rollHope',t).onclick=()=>rollFor(p,true);
+      wrap.appendChild(t);
+    });
+    updatePills();
+  }
+
+  function updateAll(){ renderCandles(); renderPlayers(); }
+
+  $('#addPlayerBtn').onclick=()=>{ addPlayer($('#newPlayerName').value||`Игрок ${state.players.length+1}`); $('#newPlayerName').value=''; };
+  $('#resetScenePoolsBtn').onclick=()=>{ state.players.forEach(p=>p.pool=state.candles); renderPlayers(); };
+  $('#extinguishBtn').onclick=extinguishCandle;
+  $('#newSceneBtn').onclick=newScene;
+
+  updateAll();
+  </script>
+</body>
+</html>
