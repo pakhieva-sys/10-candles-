@@ -1,0 +1,294 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Десять Свечей — помощник ведущего</title>
+<style>
+:root{--bg:#0f1117;--card:#161a23;--line:#232838;--text:#e6e6e6;--muted:#aab3c5;--ok:#7CFC7C;--bad:#ff6b6b;--warn:#ffd166}
+*{box-sizing:border-box} body{margin:0;font-family:system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,Arial;background:var(--bg);color:var(--text)}
+header{position:sticky;top:0;background:#0f1117cc;border-bottom:1px solid var(--line);padding:12px 16px;backdrop-filter:blur(8px);z-index:5}
+h1{margin:0;font-size:18px} .row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.pill{border:1px solid var(--line);border-radius:999px;padding:6px 10px;font-size:12px;color:var(--muted)}
+main{padding:16px;display:grid;gap:16px;grid-template-columns:1fr} @media(min-width:900px){main{grid-template-columns:1fr 1fr}}
+.card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:14px}
+.title{font-weight:700;margin-bottom:6px}
+.btn{border:1px solid var(--line);background:#24304a;color:#fff;padding:8px 12px;border-radius:10px;cursor:pointer}
+.btn-ghost{background:transparent;color:var(--muted)}
+.badge{border:1px solid var(--line);border-radius:8px;padding:4px 8px;font-size:12px;color:var(--muted)}
+.small{font-size:12px;color:var(--muted)}
+.candles{display:flex;gap:6px;flex-wrap:wrap}
+.candle{width:22px;height:22px;border-radius:6px;display:grid;place-items:center;border:1px solid var(--line);background:#1b2132}
+.candle.lit{background:#2b3249;color:#ffd166;text-shadow:0 0 8px #ffd166}
+.grid{display:grid;gap:8px;grid-template-columns:1fr 1fr}
+.players{display:flex;flex-direction:column;gap:12px}
+.player{border:1px dashed var(--line);border-radius:12px;padding:12px}
+.hr{height:1px;background:var(--line);margin:10px 0}
+.dice{font-family:ui-monospace,Menlo,Consolas,monospace;display:flex;gap:6px;flex-wrap:wrap}
+.die{padding:4px 6px;border-radius:6px;border:1px solid var(--line);background:#0e1424;min-width:26px;text-align:center}
+.die.six{background:#1a2a1e;color:var(--ok);border-color:#2a4a2f;font-weight:700}
+.die.one{opacity:.7}
+.log{max-height:320px;overflow:auto;background:#0e1220;border:1px solid var(--line);padding:10px;border-radius:10px;white-space:pre-wrap}
+.success{color:var(--ok)} .fail{color:var(--bad)} .warn{color:var(--warn)}
+input[type="text"]{width:100%;background:#0f1320;border:1px solid var(--line);color:#fff;border-radius:8px;padding:8px}
+label{user-select:none}
+</style>
+</head>
+<body>
+<header>
+  <div class="row">
+    <h1>Десять Свечей</h1>
+    <span class="pill" id="sceneP">Сцена 1</span>
+    <span class="pill" id="candlesP">Свечи: 10</span>
+    <span class="pill" id="poolP">Пул игроков: 10</span>
+    <span class="pill" id="gmP">Пул ГМа: 0</span>
+  </div>
+</header>
+
+<main>
+  <section class="card">
+    <div class="title">Свечи и сцены</div>
+    <div id="candles" class="candles"></div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px">
+      <button class="btn" id="extinguish">🕯 Погасить свечу</button>
+      <button class="btn" id="newScene">🧭 Новая сцена</button>
+      <span class="badge" id="finalB" style="display:none">Последняя свеча: провал = смерть</span>
+    </div>
+    <div class="hr"></div>
+    <div class="small">Ритуал истин: «<b>Вот всё, что осталось. Мир погружён во тьму.</b>» → по кругу истины (их ровно столько, сколько горящих свечей) → вместе: «<b>И мы живы</b>».</div>
+  </section>
+
+  <section class="card">
+    <div class="title">Игроки</div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap">
+      <input id="name" placeholder="Имя игрока" style="flex:1;min-width:140px">
+      <button class="btn" id="add">Добавить</button>
+    </div>
+    <div id="players" class="players"></div>
+  </section>
+
+  <section class="card" style="grid-column:1/-1">
+    <div class="title">Лог</div>
+    <div id="log" class="log"></div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px">
+      <button class="btn-ghost btn" id="clearLog">Очистить</button>
+    </div>
+  </section>
+</main>
+
+<template id="pT">
+  <div class="player">
+    <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+      <div style="font-weight:700" class="nm"></div>
+      <span class="badge">Надежда: <b class="hope">нет</b></span>
+      <span class="badge">Черты: <span class="traits">2 активны</span></span>
+      <span class="badge">Грань: <span class="brink">скрыта</span></span>
+    </div>
+    <div class="hr"></div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap">
+      <label><input type="checkbox" class="danger"> Опасный конфликт</label>
+      <button class="btn roll">🎲 Бросок (общий пул)</button>
+      <button class="btn rollH">🎲+Надежда</button>
+      <button class="btn-ghost btn vBurn">🔥 Сжечь добродетель (переброс «1»)</button>
+      <button class="btn-ghost btn cBurn">🔥 Сжечь порок (переброс «1»)</button>
+      <button class="btn-ghost btn brinkUse">⚡ Принять Грань</button>
+      <button class="btn-ghost btn intercept" style="display:none">🕯 Перехватить рассказ</button>
+    </div>
+    <div class="hr"></div>
+    <div class="small">Момент: <button class="btn-ghost btn doMoment">✨ Прожить Момент</button> (успех → кость Надежды, провал → гаснет свеча)</div>
+    <div class="hr"></div>
+    <div class="small">Последний бросок:</div>
+    <div class="dice pDice"></div>
+    <div class="small" style="margin-top:4px">Кости ГМа:</div>
+    <div class="dice gDice"></div>
+    <div class="small res">—</div>
+  </div>
+</template>
+
+<script>
+const $=(s,r=document)=>r.querySelector(s); const rng=n=>Array.from({length:n},()=>1+Math.floor(Math.random()*6));
+const state={
+  scene:1,candles:10,
+  shared:10,
+  gmBonus:0, // лишние кости, ушедшие к ГМу при восстановлении пула
+  players:[], nextId:1
+};
+const gmPool=()=>Math.max(0,state.scene-1)+state.gmBonus;
+
+function updPills(){
+  $('#sceneP').textContent=`Сцена ${state.scene}`;
+  $('#candlesP').textContent=`Свечи: ${state.candles}`;
+  $('#poolP').textContent=`Пул игроков: ${state.shared}`;
+  $('#gmP').textContent=`Пул ГМа: ${gmPool()}`;
+  $('#finalB').style.display = (state.candles===1)?'inline-block':'none';
+}
+function drawCandles(){
+  const box=$('#candles'); box.innerHTML='';
+  for(let i=0;i<10;i++){
+    const b=document.createElement('button');
+    b.className='candle'+(i<state.candles?' lit':''); b.textContent=i<state.candles?'🕯':'◼';
+    b.onclick=()=>{state.candles=i+1; state.shared=state.candles; updPills();};
+    box.appendChild(b);
+  } updPills();
+}
+function log(t){ const L=$('#log'); L.textContent+=(L.textContent?'\n\n':'')+t; L.scrollTop=L.scrollHeight; }
+
+function endScene(reason){
+  if(state.candles<=0) return;
+  state.candles--; state.scene++;
+  state.shared = Math.min(state.candles, state.shared); // восстановим позже правильно
+  // восстановление пула до числа свечей; лишние — к ГМу
+  const restoreTo=state.candles; if(state.shared<restoreTo){ state.shared=restoreTo; }
+  else if(state.shared>restoreTo){ state.gmBonus += (state.shared-restoreTo); state.shared=restoreTo; }
+  updPills(); drawPlayers();
+  log(`🕯 Свеча погашена (${reason}). Ритуал истин. Новый общий пул: ${state.shared}. Пул ГМа: ${gmPool()}.`);
+}
+
+function newScene(){
+  state.scene++; // свечи те же
+  // общий пул в начале сцены = числу горящих свечей
+  const restoreTo=state.candles;
+  if(state.shared<restoreTo) state.shared=restoreTo;
+  else if(state.shared>restoreTo){ state.gmBonus+=(state.shared-restoreTo); state.shared=restoreTo; }
+  updPills(); drawPlayers(); log(`🧭 Новая сцена ${state.scene}. Общий пул восстановлён до ${state.shared}.`);
+}
+
+function addPlayer(name){
+  state.players.push({
+    id:state.nextId++, name,
+    hope:false,
+    virtue:true, vice:true, // доступны
+    burnedThisScene:false,
+    brink:{known:false, available:false, burned:false}, // available станет true после Момента и сожжённых Черт
+    last:null
+  }); drawPlayers();
+}
+
+function renderOne(p,wrap){
+  const t=$('#pT').content.cloneNode(true);
+  $('.nm',t).textContent=p.name;
+  $('.hope',t).textContent=p.hope?'есть':'нет';
+  $('.traits',t).textContent=(p.virtue?1:0)+(p.vice?1:0)+' активны';
+  $('.brink',t).textContent=p.brink.burned?'сожжена':(p.brink.available?'активна':'скрыта');
+  const res=$('.res',t), pD=$('.pDice',t), gD=$('.gDice',t);
+
+  const doRoll=(useHope)=>{
+    const danger=$('.danger',t).checked;
+    const poolBefore=state.shared;
+    if(poolBefore<=0){ log(`⚠️ Общий пул пуст. Начните новую сцену.`); return; }
+    const pDice=rng(poolBefore); const gDice=rng(gmPool());
+    let hopeVal=null; if(useHope && p.hope) hopeVal=1+Math.floor(Math.random()*6);
+
+    const success = pDice.includes(6) || (hopeVal!==null && hopeVal>=5);
+    const pSix = pDice.filter(x=>x===6).length, gSix=gDice.filter(x=>x===6).length;
+    const narrator = (success && pSix>gSix)?'игрок':'ГМ'; // ничья за рассказом — у ГМа
+    let ones=pDice.filter(x=>x===1).length;
+
+    if(success){
+      state.shared = Math.max(0, poolBefore - ones);
+    }else{
+      // провал: гасим свечу; при опасном конфликте — уточнение в логе
+      endScene(danger?'провал опасного конфликта':'провал');
+    }
+
+    p.last={pDice,gDice,hopeVal,success,narrator,ones,poolBefore,canIntercept:(success && narrator==='ГМ')};
+    // Грань доступна, только если Момент был (hope==true) И обе черты уже сожжены
+    p.brink.available = p.hope && !p.virtue && !p.vice && !p.brink.burned;
+
+    drawPlayers();
+    const fmt=a=>a.map(v=>v===6?`[${v}]`:v).join(' ');
+    log(`${p.name} — общий пул до броска: ${poolBefore}\nИгрок: ${fmt(pDice)}${hopeVal!==null?`\nНадежда: ${hopeVal}`:''}\nГМ: ${fmt(gDice)}\n${success?`✅ УСПЕХ · право рассказа: ${narrator}`:`❌ ПРОВАЛ${danger?' (ОПАСНЫЙ)':''}`} ${success?`\nСнято «1»: ${ones} → пул теперь ${state.shared}`:''}`);
+  };
+
+  $('.roll',t).onclick=()=>doRoll(false);
+  $('.rollH',t).onclick=()=>doRoll(true);
+
+  $('.vBurn',t).onclick=()=>{
+    if(!p.virtue) return alert('Добродетель уже сожжена.');
+    if(p.burnedThisScene) return alert('За сцену можно сжечь только одну Черту.');
+    if(!p.last) return alert('Сначала сделайте бросок.');
+    // перебрасываем только «1»
+    const idx=[]; p.last.pDice.forEach((v,i)=>{ if(v===1) idx.push(i); });
+    if(!idx.length) return alert('В последнем броске нет «1».');
+    idx.forEach(i=> p.last.pDice[i]=1+Math.floor(Math.random()*6));
+    // пересчёт
+    const ones=p.last.pDice.filter(x=>x===1).length;
+    state.shared = Math.max(0, p.last.poolBefore - ones);
+    p.virtue=false; p.burnedThisScene=true;
+    p.brink.available = p.hope && !p.virtue && !p.vice && !p.brink.burned;
+    drawPlayers(); log(`🔥 ${p.name} сжёг Добродетель → переброс «1». Общий пул теперь: ${state.shared}.`);
+  };
+
+  $('.cBurn',t).onclick=()=>{
+    if(!p.vice) return alert('Порок уже сожжён.');
+    if(p.burnedThisScene) return alert('За сцену можно сжечь только одну Черту.');
+    if(!p.last) return alert('Сначала сделайте бросок.');
+    const idx=[]; p.last.pDice.forEach((v,i)=>{ if(v===1) idx.push(i); });
+    if(!idx.length) return alert('В последнем броске нет «1».');
+    idx.forEach(i=> p.last.pDice[i]=1+Math.floor(Math.random()*6));
+    const ones=p.last.pDice.filter(x=>x===1).length;
+    state.shared = Math.max(0, p.last.poolBefore - ones);
+    p.vice=false; p.burnedThisScene=true;
+    p.brink.available = p.hope && !p.virtue && !p.vice && !p.brink.burned;
+    drawPlayers(); log(`🔥 ${p.name} сжёг Порок → переброс «1». Общий пул теперь: ${state.shared}.`);
+  };
+
+  $('.brinkUse',t).onclick=()=>{
+    if(!p.brink.available) return alert('Грань недоступна (нужен прожитый Момент и обе Черты должны быть сожжены).');
+    if(!p.last) return alert('Сначала сделайте бросок.');
+    const pool=p.last.poolBefore;
+    const pDice=rng(pool), gDice=rng(gmPool());
+    const success = pDice.includes(6) || (p.hope && false); // Надежда учитывается своим кубом отдельно — тут переброс всего пула обычных кубов
+    const narrator = success && (pDice.filter(x=>x===6).length > gDice.filter(x=>x===6).length) ? 'игрок':'ГМ';
+    const ones=pDice.filter(x=>x===1).length;
+    if(success){
+      state.shared = Math.max(0, pool - ones);
+      log(`⚡ ${p.name} принял Грань → УСПЕХ. «1» сняты: ${ones}. Пул теперь ${state.shared}.`);
+    }else{
+      p.brink.burned=true; p.brink.available=false; p.hope=false;
+      endScene('провал после Грани (Надежда утеряна, Грань сожжена)');
+    }
+    p.last={pDice,gDice,hopeVal:null,success,narrator,ones,poolBefore:pool,canIntercept:(success && narrator==='ГМ')};
+    drawPlayers();
+  };
+
+  $('.doMoment',t).onclick=()=>{
+    // Один бросок на проживание Момента (обычные правила конфликта)
+    const poolBefore=state.shared; const pDice=rng(poolBefore); const gDice=rng(gmPool());
+    const success = pDice.includes(6);
+    const narrator = success && (pDice.filter(x=>x===6).length>gDice.filter(x=>x===6).length) ? 'игрок':'ГМ';
+    if(success){ p.hope=true; log(`✨ ${p.name} прожил Момент: обретена кость Надежды.`); }
+    else{ endScene('Момент провалён — надежда утрачена'); }
+    p.last={pDice,gDice,hopeVal:null,success,narrator,ones:pDice.filter(x=>x===1).length,poolBefore,canIntercept:(success && narrator==='ГМ')};
+    // Момент сожжён по определению — повторно прожить нельзя (мы лишь не храним его как карту)
+    p.brink.available = p.hope && !p.virtue && !p.vice && !p.brink.burned;
+    drawPlayers();
+  };
+
+  const interceptBtn=$('.intercept',t);
+  if(p.last && p.last.canIntercept){ interceptBtn.style.display='inline-block';
+    interceptBtn.onclick=()=>{ p.last.canIntercept=false; endScene('перехват повествования игроком'); drawPlayers(); };
+  }
+
+  if(p.last){
+    p.last.pDice.forEach(v=>{const s=document.createElement('span'); s.className='die'+(v===6?' six':(v===1?' one':'')); s.textContent=v; pD.appendChild(s);});
+    p.last.gDice.forEach(v=>{const s=document.createElement('span'); s.className='die'+(v===6?' six':(v===1?' one':'')); s.textContent=v; gD.appendChild(s);});
+    res.innerHTML=(p.last.success?'<span class="success">УСПЕХ</span>':'<span class="fail">ПРОВАЛ</span>')+` · рассказ: <b>${p.last.narrator}</b>`;
+  }
+  wrap.appendChild(t);
+}
+
+function drawPlayers(){
+  const wrap=$('#players'); wrap.innerHTML='';
+  state.players.forEach(p=>renderOne(p,wrap));
+  drawCandles(); updPills();
+}
+
+$('#add').onclick=()=>{ const n=$('#name').value||`Игрок ${state.players.length+1}`; $('#name').value=''; addPlayer(n); };
+$('#extinguish').onclick=()=>endScene('по решению ведущего/событию');
+$('#newScene').onclick=newScene;
+$('#clearLog').onclick=()=>{$('#log').textContent='';};
+drawCandles(); updPills(); drawPlayers();
+</script>
+</body>
+</html>
