@@ -1,0 +1,229 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Десять Свечей — общий пул</title>
+<style>
+:root{--bg:#0f1117;--card:#161a23;--line:#232838;--text:#e6e6e6;--muted:#b7c0d1;--ok:#7CFC7C;--danger:#ff6b6b}
+*{box-sizing:border-box}body{margin:0;font-family:system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,Arial;background:var(--bg);color:var(--text)}
+header{padding:14px 16px;border-bottom:1px solid var(--line);position:sticky;top:0;background:#0f1117cc;backdrop-filter:blur(8px)}
+h1{margin:0;font-size:18px}.row{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.pill{padding:6px 10px;border:1px solid var(--line);border-radius:999px;color:var(--muted);font-size:12px}
+main{padding:16px;display:grid;gap:16px;grid-template-columns:1fr} @media(min-width:900px){main{grid-template-columns:1fr 1fr}}
+.card{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:16px}
+.title{font-weight:700;margin-bottom:8px}.candles{display:flex;gap:6px;flex-wrap:wrap}
+.candle{width:24px;height:24px;border-radius:6px;display:grid;place-items:center;border:1px solid var(--line);background:#1f2536}
+.candle.lit{background:#2c334a;color:#ffd166;text-shadow:0 0 8px #ffd166}
+.btn{border:1px solid var(--line);background:#24304a;color:#fff;padding:10px 14px;border-radius:10px;cursor:pointer}
+.btn-ghost{background:transparent;color:var(--muted)}
+.players{display:flex;flex-direction:column;gap:12px}
+.player{border:1px dashed var(--line);border-radius:12px;padding:12px}
+.badge{border:1px solid var(--line);border-radius:8px;padding:4px 8px;font-size:12px;color:var(--muted)}
+.label{font-size:12px;color:var(--muted)} .hr{height:1px;background:var(--line);margin:10px 0}
+.dice{font-family:ui-monospace,Menlo,Consolas,monospace;display:flex;gap:6px;flex-wrap:wrap}
+.die{padding:4px 6px;border-radius:6px;border:1px solid var(--line);background:#0e1424;min-width:26px;text-align:center}
+.die.six{background:#1a2a1e;color:var(--ok);border-color:#2a4a2f;font-weight:700}
+.die.one{opacity:.7}
+.log{max-height:280px;overflow:auto;background:#0e1220;border:1px solid var(--line);padding:12px;border-radius:10px;white-space:pre-wrap}
+.success{color:var(--ok)} .fail{color:var(--danger)}
+</style>
+</head>
+<body>
+<header>
+  <div class="row">
+    <h1>Десять Свечей · Панель</h1>
+    <span class="pill" id="scenePill">Сцена 1</span>
+    <span class="pill" id="candlesPill">Свечи: 10</span>
+    <span class="pill" id="poolPill">Пул игроков: 10</span>
+    <span class="pill" id="gmPill">Пул ГМа: 0</span>
+  </div>
+</header>
+
+<main>
+  <section class="card">
+    <div class="title">Свечи и сцены</div>
+    <div class="candles" id="candles"></div>
+    <div style="margin-top:10px;display:flex;gap:8px;flex-wrap:wrap">
+      <button class="btn" id="extinguishBtn">🕯 Погасить свечу</button>
+      <button class="btn" id="newSceneBtn">🧭 Новая сцена</button>
+      <span class="badge" id="finalBadge" style="display:none">Последняя свеча: провал = смерть</span>
+    </div>
+    <div class="hr"></div>
+    <div class="label">Подсказка «Истин»:</div>
+    <div class="label">«Вот всё, что осталось. Мир погружён во тьму.» → истины = числу свечей → вместе: «И мы живы».</div>
+  </section>
+
+  <section class="card">
+    <div class="title">Игроки</div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap">
+      <input id="newPlayerName" placeholder="Имя" style="flex:1;min-width:140px">
+      <button class="btn" id="addPlayerBtn">Добавить</button>
+      <button class="btn-ghost btn" id="giveHopeAll">✨ Выдать Надежду выбранному (последний тап)</button>
+    </div>
+    <div class="players" id="players"></div>
+  </section>
+
+  <section class="card" style="grid-column:1/-1">
+    <div class="title">Лог</div>
+    <div class="log" id="log"></div>
+    <div style="margin-top:8px;display:flex;gap:8px;flex-wrap:wrap">
+      <button class="btn-ghost btn" id="clearLog">Очистить</button>
+    </div>
+  </section>
+</main>
+
+<template id="playerTmpl">
+  <div class="player">
+    <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+      <div style="font-weight:700" class="pname"></div>
+      <span class="badge hope">Надежда: <span class="phope">нет</span></span>
+    </div>
+    <div class="hr"></div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap">
+      <button class="btn roll">🎲 Бросок (общий пул)</button>
+      <button class="btn rollHope">🎲+Надежда</button>
+      <button class="btn-ghost btn rerollTraitV">🔥 Добродетель → переброс «1»</button>
+      <button class="btn-ghost btn rerollTraitC">🔥 Порок → переброс «1»</button>
+      <button class="btn-ghost btn brink">⚡ Грань (переброс всего)</button>
+    </div>
+    <div class="hr"></div>
+    <div class="label">Последний бросок:</div>
+    <div class="dice pdice"></div>
+    <div class="label" style="margin-top:4px">Кубы ведущего:</div>
+    <div class="dice gdice"></div>
+    <div class="label" style="margin-top:4px">Итог:</div>
+    <div class="label res">—</div>
+  </div>
+</template>
+
+<script>
+const $= (s,r=document)=>r.querySelector(s);
+const state = {
+  scene:1, candles:10,
+  sharedPool:10, // общий пул игроков
+  gmPool(){ return Math.max(0, this.scene-1); },
+  players:[], nextId:1,
+  lastSelectedId:null // кого «трогали» последним (для выдачи Надежды одной кнопкой)
+};
+
+function rng(n){ return Array.from({length:Math.max(0,n)},()=>1+Math.floor(Math.random()*6)); }
+function updatePills(){
+  $('#scenePill').textContent=`Сцена ${state.scene}`;
+  $('#candlesPill').textContent=`Свечи: ${state.candles}`;
+  $('#poolPill').textContent=`Пул игроков: ${state.sharedPool}`;
+  $('#gmPill').textContent=`Пул ГМа: ${state.gmPool()}`;
+  $('#finalBadge').style.display = (state.candles===1)?'inline-block':'none';
+}
+function renderCandles(){
+  const box=$('#candles'); box.innerHTML='';
+  for(let i=0;i<10;i++){
+    const b=document.createElement('button');
+    b.className='candle'+(i<state.candles?' lit':'');
+    b.textContent=i<state.candles?'🕯':'◼';
+    b.onclick=()=>{ state.candles=i+1; state.sharedPool=state.candles; updatePills(); };
+    box.appendChild(b);
+  }
+  updatePills();
+}
+function log(t){ const box=$('#log'); box.textContent+=(box.textContent?'\n\n':'')+t; box.scrollTop=box.scrollHeight; }
+
+function extinguishCandle(){
+  if(state.candles<=0) return;
+  state.candles--; state.scene++;
+  state.sharedPool = state.candles; // общий пул обновляется к числу свечей
+  updatePills(); renderPlayers();
+  log(`🕯 Свеча погашена. Осталось: ${state.candles}. Ритуал «Истин».`);
+}
+function newScene(){
+  state.scene++; // свечи те же, но новая сцена
+  state.sharedPool = state.candles;
+  updatePills(); renderPlayers();
+  log(`🧭 Новая сцена ${state.scene}. Общий пул восстановлен до ${state.sharedPool}.`);
+}
+
+function addPlayer(name){
+  if(!name.trim()) return;
+  state.players.push({id:state.nextId++, name, hope:false, traitV:true, traitC:true, brink:true, last:null});
+  renderPlayers();
+}
+
+function roll(withHope, player){
+  const poolBefore = state.sharedPool;
+  if(poolBefore<=0){ log(`⚠️ Общий пул пуст. Начните новую сцену.`); return; }
+  // бросаем общий пул и ГМа
+  const pDice = rng(poolBefore);
+  const gDice = rng(state.gmPool());
+  let hopeVal=null;
+  if(withHope && player.hope){ hopeVal = 1+Math.floor(Math.random()*6); }
+  // успех/право рассказа
+  const success = pDice.includes(6) || (hopeVal!==null && hopeVal>=5);
+  const narrator = (success && (pDice.filter(x=>x===6).length > gDice.filter(x=>x===6).length)) ? 'игрок' : 'ведущий';
+  // при успехе «1» уходят из общего пула до конца сцены
+  const ones = pDice.filter(x=>x===1).length;
+  if(success){
+    state.sharedPool = Math.max(0, state.sharedPool - ones);
+  }else{
+    extinguishCandle();
+  }
+  player.last = {pDice,gDice,hopeVal,success,narrator,onesRemoved:ones,poolBefore};
+  state.lastSelectedId = player.id;
+  renderPlayers();
+  const fmt = a=>a.map(v=>v===6?`[${v}]`:v).join(' ');
+  log(
+    `${player.name} — общий пул до броска: ${poolBefore}\nИгрок: ${fmt(pDice)}\nГМ: ${fmt(gDice)}`
+    +(hopeVal!==null?`\nНадежда: ${hopeVal} → ${hopeVal>=5?'успех':'провал'}`:'')
+    +`\n${success?'✅ УСПЕХ':'❌ ПРОВАЛ'} · Право рассказа: ${narrator}\nИз общего пула убрано: ${ones} × «1» → теперь ${state.sharedPool}`
+  );
+}
+
+function rerollTrait(player, which){ // переброс только «1» последнего броска
+  const l = player.last; if(!l){ alert('Сначала сделайте бросок.'); return; }
+  if(which==='V' && !player.traitV){ alert('Добродетель уже сожжена.'); return; }
+  if(which==='C' && !player.traitC){ alert('Порок уже сожжён.'); return; }
+  const idx=[]; l.pDice.forEach((v,i)=>{ if(v===1) idx.push(i); });
+  if(!idx.length){ alert('В последнем броске нет «1».'); return; }
+  idx.forEach(i=> l.pDice[i]=1+Math.floor(Math.random()*6));
+  const success = l.pDice.includes(6) || (l.hopeVal!==null && l.hopeVal>=5);
+  const narrator = (success && (l.pDice.filter(x=>x===6).length>l.gDice.filter(x=>x===6).length)) ? 'игрок':'ведущий';
+  const ones = l.pDice.filter(x=>x===1).length;
+  // Пересчитываем общий пул по правилу: он должен равняться "poolBefore - кол-во 1 в итоговом результате"
+  state.sharedPool = Math.max(0, l.poolBefore - ones);
+  l.success=success; l.narrator=narrator; l.onesRemoved=ones;
+  if(which==='V') player.traitV=false; else player.traitC=false;
+  renderPlayers();
+  log(`🔥 ${player.name} сжёг ${which==='V'?'Добродетель':'Порок'} → переброс «1». Новый остаток общего пула: ${state.sharedPool}.`);
+}
+
+function useBrink(player){
+  if(!player.brink){ alert('Грань уже использована.'); return; }
+  // Переброс всего пула (общего)
+  const poolBefore = state.sharedPool;
+  const pDice = rng(poolBefore), gDice = rng(state.gmPool());
+  const success = pDice.includes(6);
+  const narrator = (success && (pDice.filter(x=>x===6).length>gDice.filter(x=>x===6).length)) ? 'игрок':'ведущий';
+  const ones = pDice.filter(x=>x===1).length;
+  if(success){ state.sharedPool = Math.max(0, poolBefore - ones); }
+  else { player.hope=false; extinguishCandle(); player.brink=false; }
+  player.last={pDice,gDice,hopeVal:null,success,narrator,onesRemoved:ones,poolBefore};
+  renderPlayers();
+  log(`⚡ ${player.name} бросил на Грани. ${success?'Успех':'Провал'}; остаток общего пула: ${state.sharedPool}.`);
+}
+
+function renderPlayers(){
+  const wrap=$('#players'); wrap.innerHTML='';
+  state.players.forEach(p=>{
+    const t=$('#playerTmpl').content.cloneNode(true);
+    $('.pname',t).textContent=p.name;
+    $('.phope',t).textContent=p.hope?'есть':'нет';
+    $('.roll',t).onclick=()=>roll(false,p);
+    $('.rollHope',t).onclick=()=>roll(true,p);
+    $('.rerollTraitV',t).onclick=()=>rerollTrait(p,'V');
+    $('.rerollTraitC',t).onclick=()=>rerollTrait(p,'C');
+    $('.brink',t).onclick=()=>useBrink(p);
+    // показать последний бросок
+    const pd=$('.pdice',t), gd=$('.gdice',t), res=$('.res',t);
+    if(p.last){
+      p.last.pDice.forEach(v=>{ const s=document.createElement('span'); s.className='die'+(v===6?' six':(v===1?' one':'')); s.textContent=v; pd.appendChild(s); });
+      p.last.gDice.forEach(v=>{ const s=document.createElement('span'); s.className='die'+(v===6?' six':(v===1?' one':'')); s.textContent=v; gd.appendChild(s); });
+      res.innerHTML = (p.last.success?'<span class="success">УСПЕХ</span>':'<span class="fail">П
